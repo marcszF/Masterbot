@@ -124,7 +124,7 @@ local function createHud()
   hudWindow = setupUI([[
 UIWindow
   id: AnalyzeExpHud
-  size: 260 220
+  size: 260 236
   draggable: true
   focusable: false
   image-source: /images/ui/panel_flat
@@ -168,10 +168,22 @@ UIWindow
     color: #ffffff
 
   Label
+    id: rawExpHour
+    text: "Raw Exp/h: -"
+    text-align: left
+    anchors.top: expHour.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
     id: expSession
     text: "Exp Session: -"
     text-align: left
-    anchors.top: expHour.bottom
+    anchors.top: rawExpHour.bottom
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: 2
@@ -310,6 +322,7 @@ UIWindow
     targetTime = hudWindow.targetTime,
     sessionTime = hudWindow.sessionTime,
     expHour = hudWindow.expHour,
+    rawExpHour = hudWindow.rawExpHour,
     expSession = hudWindow.expSession,
     expMob = hudWindow.expMob,
     initialLevel = hudWindow.initialLevel,
@@ -409,6 +422,7 @@ macro(HUD_UPDATE_INTERVAL_MS, function()
   if elapsedSeconds < 1 then return end
   local elapsedHours = elapsedSeconds / 3600
   local expHour = getXpHour(expSession, elapsedSeconds)
+  local rawExpHour = elapsedHours > 0 and (expSession / elapsedHours) or 0
   local sessionTime = formatTime(elapsedSeconds)
   local levelsGained = lvl() - initialLevel
   local levelsHour = elapsedHours > 0 and (levelsGained / elapsedHours) or 0
@@ -429,6 +443,7 @@ macro(HUD_UPDATE_INTERVAL_MS, function()
   hudLabels.targetTime:setText("Target Level Time: " .. targetTime)
   hudLabels.sessionTime:setText("Session Time: " .. sessionTime)
   hudLabels.expHour:setText("Exp/h: " .. formatNumber(expHour))
+  hudLabels.rawExpHour:setText("Raw Exp/h: " .. formatNumber(rawExpHour))
   hudLabels.expSession:setText("Exp Session: " .. formatNumber(expSession))
   hudLabels.expMob:setText("Exp Mob: " .. formatNumber(expMob))
   hudLabels.initialLevel:setText("Initial Level: " .. initialLevel)

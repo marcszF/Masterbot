@@ -121,68 +121,207 @@ local function createHud()
   local old = rootWidget:recursiveGetChildById(HUD_ID)
   if old then old:destroy() end
 
-  hudWindow = g_ui.createWidget("Panel", rootWidget)
+  hudWindow = setupUI([[
+UIWindow
+  id: AnalyzeExpHud
+  size: 260 220
+  draggable: true
+  focusable: false
+  image-source: /images/ui/panel_flat
+  image-border: 4
+  opacity: 0.95
+
+  Label
+    id: targetTime
+    text: "Target Level Time: -"
+    text-align: left
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: sessionTime
+    text: "Session Time: -"
+    text-align: left
+    anchors.top: targetTime.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: expHour
+    text: "Exp/h: -"
+    text-align: left
+    anchors.top: sessionTime.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: expSession
+    text: "Exp Session: -"
+    text-align: left
+    anchors.top: expHour.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: expMob
+    text: "Exp Mob: -"
+    text-align: left
+    anchors.top: expSession.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: initialLevel
+    text: "Initial Level: -"
+    text-align: left
+    anchors.top: expMob.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: levelsGained
+    text: "Levels Gained: -"
+    text-align: left
+    anchors.top: initialLevel.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: levelsHour
+    text: "Levels/h: -"
+    text-align: left
+    anchors.top: levelsGained.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: levelsDay
+    text: "Levels/day: -"
+    text-align: left
+    anchors.top: levelsHour.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: nextLevelTime
+    text: "Next Level Time: -"
+    text-align: left
+    anchors.top: levelsDay.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: balanceCurrent
+    text: "Balance Current: -"
+    text-align: left
+    anchors.top: nextLevelTime.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: balanceSession
+    text: "Balance Session: -"
+    text-align: left
+    anchors.top: balanceCurrent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: balanceHour
+    text: "Balance/h: -"
+    text-align: left
+    anchors.top: balanceSession.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+
+  Label
+    id: balanceDay
+    text: "Balance/day: -"
+    text-align: left
+    anchors.top: balanceHour.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 6
+    font: verdana-11px-rounded
+    color: #ffffff
+]], modules.game_interface.getRootPanel())
   if not hudWindow then
     return
   end
-  hudWindow:setId(HUD_ID)
-  hudWindow:setSize({ width = 260, height = 220 })
-  hudWindow:setPosition({ x = config.pos.x, y = config.pos.y })
-  hudWindow:setBackgroundColor("#000000b0")
-  hudWindow:setBorderWidth(1)
-  hudWindow:setBorderColor("#3f3f3f")
-  hudWindow:setDraggable(true)
-  local geometryReady = false
-  hudWindow.onGeometryChange = function(widget, oldGeometry, newGeometry)
-    if not geometryReady then
-      geometryReady = true
-      return -- skip initial geometry event fired on widget creation
-    end
-    config.pos = { x = newGeometry.x, y = newGeometry.y }
+  hudWindow:setPosition(config.pos)
+  hudWindow.onGeometryChange = function(widget)
+    config.pos = widget:getPosition()
   end
-
-  local function addHudLabel(text, y)
-    local label = g_ui.createWidget("UILabel", hudWindow)
-    label:setText(text)
-    label:setFont("verdana-11px-rounded")
-    label:setColor("#ffffff")
-    label:setTextAlign(AlignLeft)
-    label:setPosition({ x = 6, y = y })
-    label:setSize({ width = 248, height = 14 })
-    return label
-  end
-
-  local y = 6
-  local spacing = 14
-  hudLabels.targetTime = addHudLabel("Target Level Time: -", y)
-  y = y + spacing
-  hudLabels.sessionTime = addHudLabel("Session Time: -", y)
-  y = y + spacing
-  hudLabels.expHour = addHudLabel("Exp/h: -", y)
-  y = y + spacing
-  hudLabels.expSession = addHudLabel("Exp Session: -", y)
-  y = y + spacing
-  hudLabels.expMob = addHudLabel("Exp Mob: -", y)
-  y = y + spacing
-  hudLabels.initialLevel = addHudLabel("Initial Level: -", y)
-  y = y + spacing
-  hudLabels.levelsGained = addHudLabel("Levels Gained: -", y)
-  y = y + spacing
-  hudLabels.levelsHour = addHudLabel("Levels/h: -", y)
-  y = y + spacing
-  hudLabels.levelsDay = addHudLabel("Levels/day: -", y)
-  y = y + spacing
-  hudLabels.nextLevelTime = addHudLabel("Next Level Time: -", y)
-  y = y + spacing
-  hudLabels.balanceCurrent = addHudLabel("Balance Current: -", y)
-  y = y + spacing
-  hudLabels.balanceSession = addHudLabel("Balance Session: -", y)
-  y = y + spacing
-  hudLabels.balanceHour = addHudLabel("Balance/h: -", y)
-  y = y + spacing
-  hudLabels.balanceDay = addHudLabel("Balance/day: -", y)
-
-  hudWindow:setHeight(y + spacing + 6)
+  hudLabels = {
+    targetTime = hudWindow.targetTime,
+    sessionTime = hudWindow.sessionTime,
+    expHour = hudWindow.expHour,
+    expSession = hudWindow.expSession,
+    expMob = hudWindow.expMob,
+    initialLevel = hudWindow.initialLevel,
+    levelsGained = hudWindow.levelsGained,
+    levelsHour = hudWindow.levelsHour,
+    levelsDay = hudWindow.levelsDay,
+    nextLevelTime = hudWindow.nextLevelTime,
+    balanceCurrent = hudWindow.balanceCurrent,
+    balanceSession = hudWindow.balanceSession,
+    balanceHour = hudWindow.balanceHour,
+    balanceDay = hudWindow.balanceDay
+  }
 end
 
 local sessionStart = getNowMillis()

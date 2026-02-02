@@ -53,16 +53,26 @@ local function formatNumber(value)
   local number = tonumber(value) or 0
   local sign = number < 0 and "-" or ""
   number = math.abs(number)
+  local suffix = ""
+  local divider = 1
   if number >= 1000000000000 then
-    return string.format("%s%.2fkkkk", sign, number / 1000000000000)
+    suffix = "kkkk"
+    divider = 1000000000000
   elseif number >= 1000000000 then
-    return string.format("%s%.2fkkk", sign, number / 1000000000)
+    suffix = "kkk"
+    divider = 1000000000
   elseif number >= 1000000 then
-    return string.format("%s%.2fkk", sign, number / 1000000)
+    suffix = "kk"
+    divider = 1000000
   elseif number >= 1000 then
-    return string.format("%s%.2fk", sign, number / 1000)
+    suffix = "k"
+    divider = 1000
   end
-  return sign .. tostring(math.floor(number))
+  if divider == 1 then
+    return sign .. tostring(math.floor(number))
+  end
+  local formatted = string.format("%.2f", number / divider):gsub("%.?0+$", "")
+  return sign .. formatted .. suffix
 end
 
 local function parseXP(value)

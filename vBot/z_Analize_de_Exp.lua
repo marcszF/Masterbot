@@ -121,7 +121,10 @@ local function createHud()
   local old = rootWidget:recursiveGetChildById(HUD_ID)
   if old then old:destroy() end
 
-  hudWindow = g_ui.createWidget("UIPanel", rootWidget)
+  hudWindow = g_ui.createWidget("Panel", rootWidget)
+  if not hudWindow then
+    return
+  end
   hudWindow:setId(HUD_ID)
   hudWindow:setSize({ width = 260, height = 220 })
   hudWindow:setPosition({ x = config.pos.x, y = config.pos.y })
@@ -258,7 +261,10 @@ onTextMessage(function(mode, text)
 end)
 
 macro(HUD_UPDATE_INTERVAL_MS, function()
-  if not config.enabled or not hudWindow then return end
+  if not config.enabled or not hudWindow then
+    createHud()
+    if not hudWindow then return end
+  end
 
   local elapsedSeconds = math.floor((getNowMillis() - sessionStart) / 1000)
   if elapsedSeconds < 1 then return end

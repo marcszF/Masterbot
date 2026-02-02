@@ -1,0 +1,302 @@
+schedule(1, function() setDefaultTab("Main") end)
+
+local HUD_ID = "AnalyzeExpHud"
+local LEGACY_HUD_ID = "AnalizeExpHud" -- kept for legacy cleanup (misspelling)
+local storageKey = "analyze_exp"
+local legacyStorageKey = "analize_exp" -- legacy key (misspelling)
+local HUD_UPDATE_INTERVAL_MS = 1000
+local BALANCE_POLL_INTERVAL_MS = 60000
+local rootWidget = g_ui.getRootWidget()
+if rootWidget then
+  local oldHud = rootWidget:recursiveGetChildById(HUD_ID)
+  if oldHud then oldHud:destroy() end
+  local legacyHud = rootWidget:recursiveGetChildById(LEGACY_HUD_ID)
+  if legacyHud then legacyHud:destroy() end
+end
+local playerName = (player and player:getName()) or (name and name()) or "default"
+
+storage[storageKey] = storage[storageKey] or storage[legacyStorageKey] or {}
+storage[storageKey][playerName] = storage[storageKey][playerName] or {
+  enabled = false,
+  targetLevel = lvl() + 1,
+  pos = { x = 200, y = 200 }
+}
+storage[legacyStorageKey] = nil
+
+local config = storage[storageKey][playerName]
+
+local function addLabel(text)
+  local label = UI.Label(text)
+  label:setFont('verdana-11px-rounded')
+  label:setColor('#9dd1ce')
+  return label
+end
+
+local function addTextEdit(text, value, callback)
+  local label = UI.Label(text)
+  label:setFont('verdana-11px-rounded')
+  label:setColor('#9dd1ce')
+  local edit = UI.TextEdit(value or "")
+  edit:setFont('verdana-11px-rounded')
+  edit.onTextChange = callback
+  return label, edit
+end
+
+local function addButton(text, callback)
+  local button = UI.Button(text, callback)
+  button:setFont('verdana-11px-rounded')
+  return button
+end
+
+local function formatNumber(value)
+  if not value then return "0" end
+  local formatted = string.format("%d", math.floor(value))
+  while true do
+    local count
+    formatted, count = formatted:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+    if count == 0 then break end
+  end
+  return formatted
+end
+
+local function parseXP(value)
+  if not value or value == "" then return 0 end
+  local text = tostring(value):lower()
+  local number, suffix = text:match("([%d%.,]+)%s*(kk|[km])")
+  if not number then
+    number = text:match("([%d%.,]+)")
+  end
+  if not number then return 0 end
+  number = tonumber(number:gsub(",", "")) or 0
+  local multiplier = 1
+  if suffix == "kk" then
+    multiplier = 1000000
+  elseif suffix == "k" then
+    multiplier = 1000
+  elseif suffix == "m" then
+    multiplier = 1000000
+  end
+  return math.floor(number * multiplier)
+end
+
+local function getExpForLevel(level)
+  if not level or level < 1 then return 0 end
+  return math.floor((50 * level * level * level) / 3 - 100 * level * level + (850 * level) / 3 - 200)
+end
+
+local function formatTime(seconds)
+  if not seconds or seconds < 0 or seconds == math.huge then return "-" end
+  local hours = math.floor(seconds / 3600)
+  local mins = math.floor((seconds % 3600) / 60)
+  local secs = math.floor(seconds % 60)
+  return string.format("%02d:%02d:%02d", hours, mins, secs)
+end
+
+local function getNowMillis()
+  return now or (os.time() * 1000)
+end
+
+local function getXpHour(expAmount, elapsedSeconds)
+  if not expAmount or expAmount <= 0 then return 0 end
+  if not elapsedSeconds or elapsedSeconds <= 0 then return 0 end
+  return math.floor((expAmount / elapsedSeconds) * 3600)
+end
+
+local hudWindow
+local hudLabels = {}
+
+local function destroyHud()
+  if hudWindow then
+    hudWindow:destroy()
+    hudWindow = nil
+    hudLabels = {}
+  end
+end
+
+local function createHud()
+  if not rootWidget then return end
+  destroyHud()
+
+  local old = rootWidget:recursiveGetChildById(HUD_ID)
+  if old then old:destroy() end
+
+  hudWindow = g_ui.createWidget("UIPanel", rootWidget)
+  hudWindow:setId(HUD_ID)
+  hudWindow:setSize({ width = 260, height = 220 })
+  hudWindow:setPosition({ x = config.pos.x, y = config.pos.y })
+  hudWindow:setBackgroundColor("#000000b0")
+  hudWindow:setBorderWidth(1)
+  hudWindow:setBorderColor("#3f3f3f")
+  hudWindow:setDraggable(true)
+  local geometryReady = false
+  hudWindow.onGeometryChange = function(widget, oldGeometry, newGeometry)
+    if not geometryReady then
+      geometryReady = true
+      return -- skip initial geometry event fired on widget creation
+    end
+    config.pos = { x = newGeometry.x, y = newGeometry.y }
+  end
+
+  local function addHudLabel(text, y)
+    local label = g_ui.createWidget("UILabel", hudWindow)
+    label:setText(text)
+    label:setFont("verdana-11px-rounded")
+    label:setColor("#ffffff")
+    label:setTextAlign(AlignLeft)
+    label:setPosition({ x = 6, y = y })
+    label:setSize({ width = 248, height = 14 })
+    return label
+  end
+
+  local y = 6
+  local spacing = 14
+  hudLabels.targetTime = addHudLabel("Target Level Time: -", y)
+  y = y + spacing
+  hudLabels.sessionTime = addHudLabel("Session Time: -", y)
+  y = y + spacing
+  hudLabels.expHour = addHudLabel("Exp/h: -", y)
+  y = y + spacing
+  hudLabels.expSession = addHudLabel("Exp Session: -", y)
+  y = y + spacing
+  hudLabels.expMob = addHudLabel("Exp Mob: -", y)
+  y = y + spacing
+  hudLabels.initialLevel = addHudLabel("Initial Level: -", y)
+  y = y + spacing
+  hudLabels.levelsGained = addHudLabel("Levels Gained: -", y)
+  y = y + spacing
+  hudLabels.levelsHour = addHudLabel("Levels/h: -", y)
+  y = y + spacing
+  hudLabels.levelsDay = addHudLabel("Levels/day: -", y)
+  y = y + spacing
+  hudLabels.nextLevelTime = addHudLabel("Next Level Time: -", y)
+  y = y + spacing
+  hudLabels.balanceCurrent = addHudLabel("Balance Current: -", y)
+  y = y + spacing
+  hudLabels.balanceSession = addHudLabel("Balance Session: -", y)
+  y = y + spacing
+  hudLabels.balanceHour = addHudLabel("Balance/h: -", y)
+  y = y + spacing
+  hudLabels.balanceDay = addHudLabel("Balance/day: -", y)
+
+  hudWindow:setHeight(y + spacing + 6)
+end
+
+local sessionStart = getNowMillis()
+local expSession = 0
+local expMob = 0
+local initialLevel = lvl()
+local balanceCurrent
+local balanceInitial
+local balanceReset = true
+
+local function resetSession()
+  sessionStart = getNowMillis()
+  expSession = 0
+  expMob = 0
+  initialLevel = lvl()
+  balanceInitial = nil
+  balanceReset = true
+end
+
+local function updateToggleButton(button)
+  if not button then return end
+  local state = config.enabled and "ON" or "OFF"
+  button:setText("Exp/Balance HUD: " .. state)
+  button:setColor(config.enabled and "#9dd1ce" or "#d9534f")
+  button:setImageColor(config.enabled and "#9dd1ce" or "#d9534f")
+end
+
+addLabel("Exp/Balance HUD")
+local targetLabel, targetEdit = addTextEdit("Target Level", tostring(config.targetLevel), function(widget, text)
+  local value = parseXP(text)
+  if value > 0 then
+    config.targetLevel = value
+  end
+end)
+targetEdit:setTextAlign(AlignCenter)
+addLabel("")
+
+local toggleButton = addButton("Exp/Balance HUD: OFF", function()
+  config.enabled = not config.enabled
+  if config.enabled then
+    resetSession()
+    createHud()
+  else
+    destroyHud()
+  end
+  updateToggleButton(toggleButton)
+end)
+
+updateToggleButton(toggleButton)
+
+if config.enabled then
+  resetSession()
+  createHud()
+end
+
+onTextMessage(function(mode, text)
+  local lower = text:lower()
+  if lower:find("experience") then
+    local gained = parseXP(text)
+    if gained > 0 then
+      expMob = gained
+      expSession = expSession + gained
+    end
+  end
+
+  if lower:find("balance") then
+    local value = parseXP(text)
+    if value > 0 then
+      balanceCurrent = value
+      if balanceInitial == nil or balanceReset then
+        balanceInitial = value
+        balanceReset = false
+      end
+    end
+  end
+end)
+
+macro(HUD_UPDATE_INTERVAL_MS, function()
+  if not config.enabled or not hudWindow then return end
+
+  local elapsedSeconds = math.floor((getNowMillis() - sessionStart) / 1000)
+  if elapsedSeconds < 1 then return end
+  local elapsedHours = elapsedSeconds / 3600
+  local expHour = getXpHour(expSession, elapsedSeconds)
+  local sessionTime = formatTime(elapsedSeconds)
+  local levelsGained = lvl() - initialLevel
+  local levelsHour = elapsedHours > 0 and (levelsGained / elapsedHours) or 0
+  local levelsDay = levelsHour * 24
+  local expToNext = getExpForLevel(lvl() + 1) - exp()
+  local nextLevelTime = expHour > 0 and formatTime(expToNext / expHour * 3600) or "-"
+  local targetLevel = tonumber(config.targetLevel) or 0
+  local expToTarget = targetLevel > 0 and getExpForLevel(targetLevel) - exp() or 0
+  local targetTime = expHour > 0 and expToTarget > 0 and formatTime(expToTarget / expHour * 3600) or "-"
+
+  local balanceSession = 0
+  if balanceInitial and balanceCurrent then
+    balanceSession = balanceCurrent - balanceInitial
+  end
+  local balanceHour = elapsedHours > 0 and (balanceSession / elapsedHours) or 0
+  local balanceDay = balanceHour * 24
+
+  hudLabels.targetTime:setText("Target Level Time: " .. targetTime)
+  hudLabels.sessionTime:setText("Session Time: " .. sessionTime)
+  hudLabels.expHour:setText("Exp/h: " .. formatNumber(expHour))
+  hudLabels.expSession:setText("Exp Session: " .. formatNumber(expSession))
+  hudLabels.expMob:setText("Exp Mob: " .. formatNumber(expMob))
+  hudLabels.initialLevel:setText("Initial Level: " .. initialLevel)
+  hudLabels.levelsGained:setText("Levels Gained: " .. levelsGained)
+  hudLabels.levelsHour:setText(string.format("Levels/h: %.2f", levelsHour))
+  hudLabels.levelsDay:setText(string.format("Levels/day: %.2f", levelsDay))
+  hudLabels.nextLevelTime:setText("Next Level Time: " .. nextLevelTime)
+  hudLabels.balanceCurrent:setText("Balance Current: " .. formatNumber(balanceCurrent or 0))
+  hudLabels.balanceSession:setText("Balance Session: " .. formatNumber(balanceSession))
+  hudLabels.balanceHour:setText("Balance/h: " .. formatNumber(balanceHour))
+  hudLabels.balanceDay:setText("Balance/day: " .. formatNumber(balanceDay))
+end)
+
+macro(BALANCE_POLL_INTERVAL_MS, function()
+  if not config.enabled then return end
+  say("!balance")
+end)

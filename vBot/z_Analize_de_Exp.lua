@@ -67,7 +67,8 @@ local function parseXP(value)
     number = text:match("([%d%.,]+)")
   end
   if not number then return 0 end
-  number = tonumber(number:gsub(",", "")) or 0
+  local sanitized = number:gsub(",", "")
+  number = tonumber(sanitized) or 0
   local multiplier = 1
   if suffix == "kk" then
     multiplier = 1000000
@@ -208,9 +209,9 @@ end
 
 addLabel("Exp/Balance HUD")
 local targetLabel, targetEdit = addTextEdit("Target Level", tostring(config.targetLevel), function(widget, text)
-  local value = parseXP(text)
-  if value > 0 then
-    config.targetLevel = value
+  local value = tonumber(text)
+  if value and value > 0 then
+    config.targetLevel = math.floor(value)
   end
 end)
 targetEdit:setTextAlign(AlignCenter)

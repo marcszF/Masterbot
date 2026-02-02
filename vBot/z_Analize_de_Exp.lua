@@ -49,14 +49,20 @@ local function addButton(text, callback)
 end
 
 local function formatNumber(value)
-  if not value then return "0" end
-  local formatted = string.format("%d", math.floor(value))
-  while true do
-    local count
-    formatted, count = formatted:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
-    if count == 0 then break end
+  if value == nil then return "0" end
+  local number = tonumber(value) or 0
+  local sign = number < 0 and "-" or ""
+  number = math.abs(number)
+  if number >= 1000000000000 then
+    return string.format("%s%.2fkkkk", sign, number / 1000000000000)
+  elseif number >= 1000000000 then
+    return string.format("%s%.2fkkk", sign, number / 1000000000)
+  elseif number >= 1000000 then
+    return string.format("%s%.2fkk", sign, number / 1000000)
+  elseif number >= 1000 then
+    return string.format("%s%.2fk", sign, number / 1000)
   end
-  return formatted
+  return sign .. tostring(math.floor(number))
 end
 
 local function parseXP(value)

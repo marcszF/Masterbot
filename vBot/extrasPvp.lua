@@ -178,13 +178,17 @@ addItem("vsRune", "VS Anti-Push", 3188, leftPanel, "Field rune to throw on targe
 addScrollBar("vsDelay", "Push Delay", 1, 3000, 1100, leftPanel, "Default delay for pushing.")
 addCheckBox("pushMax", "Push Max", false, rightPanel, "Mark players and destionations with below hotkey to push target.")
 addTextEdit("pushHot", "Push Max Hotkey:", "PageUp", rightPanel)
+addCheckBox("mousePush", "Mouse Push Target", false, rightPanel, "Push a named player toward the tile under your mouse.")
+addTextEdit("mousePushName", "Mouse Push Name:", "", rightPanel)
 if true then
   local config = {
     enabled = settings.pushMax,
     pushDelay = settings.vsDelay,
     pushMaxRuneId = settings.vsRune,
     mwallBlockId = settings.mwObj,
-    pushMaxKey = settings.pushHot
+    pushMaxKey = settings.pushHot,
+    mousePush = settings.mousePush,
+    mousePushName = settings.mousePushName
   }
 
     -- variables for config
@@ -195,6 +199,7 @@ if true then
 
   local targetTile
   local pushTarget
+  local mousePushTarget
 
   local resetData = function()
     for i, tile in pairs(g_map.getTiles(posz())) do
@@ -294,6 +299,24 @@ if true then
   end)
 
   macro(50, function()
+    config.mousePush = settings.mousePush
+    config.mousePushName = settings.mousePushName
+    if config.mousePush then
+      local tile = getTileUnderCursor()
+      if not tile or not config.mousePushName or config.mousePushName == "" then return end
+      local targetName = config.mousePushName:lower()
+      for _, spec in ipairs(getSpectators()) do
+        if not spec:isNpc() and spec:getName():lower() == targetName then
+          local targetPos = spec:getPosition()
+          if tile:getPosition().z == targetPos.z and getDistanceBetween(tile:getPosition(), targetPos) == 1 then
+            g_game.move(spec, tile:getPosition())
+            delay(200)
+          end
+          return
+        end
+      end
+      return
+    end
     if not config.enabled then return end
 
     local pushDelay = tonumber(config.pushDelay)
